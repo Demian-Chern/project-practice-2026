@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Узел Блокчейна (Майнер)</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body class="bg-light">
+
+    <nav class="navbar navbar-expand-lg navbar-dark bg-danger">
+        <div class="container">
+            <a class="navbar-brand" href="#">Blockchain Node & Miner</a>
+            <button class="btn btn-light btn-sm my-2 my-sm-0" id="btn_mine">Запустить майнинг (Mine)</button>
+        </div>
+    </nav>
+
+    <div class="container my-5">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card mb-4 shadow-sm">
+                    <div class="card-header bg-dark text-white">Добавить узлы в сеть</div>
+                    <div class="card-body">
+                        <form id="node_form">
+                            <div class="form-group">
+                                <label>Список URL узлов (через запятую):</label>
+                                <input type="text" name="nodes" class="form-control" placeholder="localhost:5001, localhost:5002">
+                            </div>
+                            <button type="submit" class="btn btn-secondary btn-block">Подключить ноды</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card mb-4 shadow-sm">
+                    <div class="card-header bg-info text-white">Консенсус</div>
+                    <div class="card-body">
+                        <p class="small text-muted">Синхронизировать цепь с другими узлами сети по правилу самой длинной цепи.</p>
+                        <button id="btn_resolve" class="btn btn-info btn-block">Разрешить конфликты</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-8">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h4>Текущая цепочка блоков</h4>
+                    <button id="btn_refresh" class="btn btn-outline-secondary btn-sm">Обновить цепь</button>
+                </div>
+                <div id="blockchain_view">
+                    </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        $(function() {
+            function loadChain() {
+                $.ajax({
+                    url: '/chain',
+                    type: 'GET',
+                    success: function(response) {
+                        let chain = response['chain'];
+                        let html = '';
+
+                        chain.forEach(function(block) {
+                            let txs = '';
+                            block.transactions.forEach(function(tx) {
+                                txs += `<li><b>От:</b> ${tx.sender_address.substring(0, 15)}... <br>
+                                            <b>Кому:</b> ${tx.recipient_address.substring(0, 15)}... <br>
+                                            <b>Сумма:</b> <span class="badge badge-success">${tx.value}</span></li><hr>`;
+                            });
+                            if(txs === '') txs = '<span class="text-muted">Нет транзакций (Генезис-блок или пустой)</span>';
+
+                            html += `
+                                <div class="card mb-3 border-secondary shadow-sm">
+                                    <div class="card-header bg-secondary text-white d-flex justify-content-between">
+                                        <span><b>Блок №${block.block_number}</b></span>
+                                        <span class="small">Nonce: ${block.nonce}</span>
+                                    </div>
+                                    <div class="card-body">
+                                        <p class="card-text small mb-1"><b>Хеш предыдущего:</b> <code class="text-danger">${block.previous_hash}</code></p>
+                                        <p class="card-text small mb-2"><b>Время:</b> ${new Date(block.timestamp * 1000).toLocaleString()}</p>
+                                        <h6 class="border-bottom pb-1">Транзакции в блоке:</h6>
+                                        <ul class="list-unstyled mb-0 small">${txs}</ul>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        $('#blockchain_view').html(html);
+                    }
+                });
+            }
+
+            // Кнопка обновления цепи
+            $('#btn_refresh').click(loadChain);
+
+            // Майнинг нового блока
+            $('#btn_mine').click(function() {
+                $.ajax({
+                    url: '/mine',
+                    type: 'GET',
+                    success: function(response) {
+                        alert("Новый блок успешно добыт! Номер блока: " + response['block_number']);
+                        loadChain();
+                    },
+                    error: function() { alert("Ошибка при майнинге."); }
+                });
+            });
+
+            // Регистрация новых нод
+            $('#node_form').submit(function(e) {
+                e.preventDefault();
+                $.ajax({
+                    url: '/nodes/register',
+                    type: 'POST',
+                    data: $(this).serialize(),
+                    success: function(response) {
+                        alert("Новые узлы успешно зарегистрированы!");
+                        $('#node_form')[0].reset();
+                    }
+                });
+            });
+
+            // Консенсус
+            $('#btn_resolve').click(function() {
+                $.ajax({
+                    url: '/nodes/resolve',
+                    type: 'GET',
+                    success: function(response) {
+                        alert(response['message']);
+                        loadChain();
+                    }
+                });
+            });
+
+            // Первичная загрузка при открытии страницы
+            loadChain();
+        });
+    </script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

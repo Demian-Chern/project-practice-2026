@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Блокчейн Клиент</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body class="bg-light">
+
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">Blockchain Client</a>
+        </div>
+    </nav>
+
+    <div class="container my-5">
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">Генерация кошелька (Криптографические ключи)</h5>
+            </div>
+            <div class="card-body">
+                <button id="generate_wallet" class="btn btn-success mb-3">Сгенерировать кошелек</button>
+                <div class="form-group">
+                    <label><b>Публичный ключ (Ваш адрес):</b></label>
+                    <textarea id="public_key" class="form-control" rows="3" readonly></textarea>
+                </div>
+                <div class="form-group">
+                    <label><b>Приватный ключ:</b></label>
+                    <textarea id="private_key" class="form-control" rows="3" readonly></textarea>
+                </div>
+                <div class="alert alert-info d-none" id="wallet_warning">
+                    <strong>Внимание:</strong> Сохраните приватный ключ. Он необходим для подписания транзакций!
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white">
+                <h5 class="card-title mb-0">Создать и подписать транзакцию</h5>
+            </div>
+            <div class="card-body">
+                <form id="transaction_form">
+                    <div class="form-group">
+                        <label>Приватный ключ отправителя:</label>
+                        <textarea name="sender_private_key" class="form-control" rows="2" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Публичный ключ отправителя (Адрес):</label>
+                        <textarea name="sender_address" class="form-control" rows="2" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Адрес получателя:</label>
+                        <textarea name="recipient_address" class="form-control" rows="2" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Количество (Сумма):</label>
+                        <input type="number" name="amount" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Сформировать и подписать</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="modal fade" id="txModal" tabindex="-1" role="dialog">
+            <div class="modal-dialog modal-lg" role="document">
+                <div class="modal-content">
+                    <div class="modal-header bg-success text-white">
+                        <h5 class="modal-title">Транзакция успешно подписана!</h5>
+                        <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Теперь вы можете отправить эти данные на любой узел майнинга:</p>
+                        <pre id="tx_json" class="bg-dark text-warning p-3 rounded"></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.bundle.min.js"></script>
+    <script>
+        $(function() {
+            // Генерация кошелька
+            $('#generate_wallet').click(function() {
+                $.ajax({
+                    url: '/wallet/new',
+                    type: 'GET',
+                    success: function(response) {
+                        $('#public_key').val(response['public_key']);
+                        $('#private_key').val(response['private_key']);
+                        $('#wallet_warning').removeClass('d-none');
+                    }
+                });
+            });
+
+            // Подписание транзакции
+            $('#transaction_form').submit(function(e) {
+                e.preventDefault();
+                $.ajax({
+                    url: '/generate/transaction',
+                    type: 'POST',
+                    data: $(this).serialize(),
+                    success: function(response) {
+                        $('#tx_json').text(JSON.stringify(response, null, 4));
+                        $('#txModal').modal('show');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
