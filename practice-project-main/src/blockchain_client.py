@@ -1,4 +1,5 @@
 import binascii
+import json
 from collections import OrderedDict
 import Crypto
 import Crypto.Random
@@ -11,26 +12,26 @@ app = Flask(__name__)
 
 
 class Transaction:
-    def __init__(self, sender_address, sender_private_key, recipient_address, value):
+    def __init__(self, sender_address, sender_private_key, recipient_address, amount):
         self.sender_address = sender_address
         self.sender_private_key = sender_private_key
         self.recipient_address = recipient_address
-        self.value = value
+        self.amount = amount
 
     def to_dict(self):
-        """Возвращает информацию о транзакции в виде упорядоченного словаря без приватного ключа"""
         return OrderedDict({
-            'sender_address': self.sender_address,
-            'recipient_address': self.recipient_address,
-            'value': self.value
+            'sender': self.sender_address,
+            'recipient': self.recipient_address,
+            'amount': self.amount
         })
 
     def sign_transaction(self):
-        """Подпись транзакции с использованием приватного ключа RSA"""
+        """Подписываем транзакцию приватным ключом"""
         private_key = RSA.importKey(binascii.unhexlify(self.sender_private_key))
         signer = PKCS1_v1_5.new(private_key)
-        h = SHA.new(str(self.to_dict()).encode('utf8'))
-        return binascii.hexlify(signer.sign(h)).decode('ascii')
+        h = SHA.new(json.dumps(self.to_dict(), sort_keys=True).encode('utf8'))
+        signature = signer.sign(h)
+        return binascii.hexlify(signature).decode('ascii')
 
 
 @app.route('/')
@@ -40,7 +41,7 @@ def index():
 
 @app.route('/wallet/new', methods=['GET'])
 def new_wallet():
-    """Генерация пары ключей RSA (публичный и приватный)"""
+    """Генерация новой пары ключей"""
     random_gen = Crypto.Random.new().read
     private_key = RSA.generate(1024, random_gen)
     public_key = private_key.publickey()
@@ -52,27 +53,30 @@ def new_wallet():
     return jsonify(response), 200
 
 
-@app.route('/generate/transaction', methods=['POST'])
+@app.route('/transactions/new', methods=['POST'])
 def generate_transaction():
-    """Формирование и подписание транзакции на основе переданных данных"""
-    sender_address = request.form['sender_address']
-    sender_private_key = request.form['sender_private_key']
-    recipient_address = request.form['recipient_address']
-    value = request.form['amount']
+    """Создание и подписание транзакции"""
+    values = request.form
 
-    transaction = Transaction(sender_address, sender_private_key, recipient_address, value)
+    transaction = Transaction(
+        values['sender_address'],
+        values['sender_private_key'],
+        values['recipient_address'],
+        values['amount']
+    )
+
+    signature = transaction.sign_transaction()
 
     response = {
         'transaction': transaction.to_dict(),
-        'signature': transaction.sign_transaction()
+        'signature': signature
     }
     return jsonify(response), 200
 
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
-
     parser = ArgumentParser()
-    parser.add_argument('-p', '--port', default=8080, type=int, help='Port to listen on')
+    parser.add_argument('-p', '--port', default=8080, type=int)
     args = parser.parse_args()
-    app.run(host='127.0.0.1', port=args.port, debug=True)
+    app.run(host='0.0.0.0', port=args.port, debug=True)

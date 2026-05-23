@@ -2,140 +2,137 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Узел Блокчейна (Майнер)</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blockchain Node • МосПолиФизикс</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body { background: #0f0f1a; color: #e0e0e0; }
+        .card { background: #1a1a2e; border: none; }
+        .block { background: #16213e; margin-bottom: 15px; border-radius: 10px; }
+        .navbar { background: linear-gradient(135deg, #667eea, #764ba2); }
+        .hash { font-family: monospace; font-size: 0.9rem; word-break: break-all; }
+    </style>
 </head>
-<body class="bg-light">
-
-    <nav class="navbar navbar-expand-lg navbar-dark bg-danger">
+<body>
+    <nav class="navbar navbar-dark">
         <div class="container">
-            <a class="navbar-brand" href="#">Blockchain Node & Miner</a>
-            <button class="btn btn-light btn-sm my-2 my-sm-0" id="btn_mine">Запустить майнинг (Mine)</button>
+            <a class="navbar-brand fw-bold" href="#">🔗 Blockchain Node</a>
+            <button id="btn_mine" class="btn btn-warning btn-lg">⛏️ Запустить Майнинг</button>
         </div>
     </nav>
 
-    <div class="container my-5">
+    <div class="container mt-4">
         <div class="row">
-            <div class="col-md-4">
-                <div class="card mb-4 shadow-sm">
-                    <div class="card-header bg-dark text-white">Добавить узлы в сеть</div>
+            <!-- Левая панель -->
+            <div class="col-lg-4">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5>Добавить узлы в сеть</h5>
+                    </div>
                     <div class="card-body">
                         <form id="node_form">
-                            <div class="form-group">
-                                <label>Список URL узлов (через запятую):</label>
-                                <input type="text" name="nodes" class="form-control" placeholder="localhost:5001, localhost:5002">
+                            <div class="mb-3">
+                                <input type="text" name="nodes" class="form-control" placeholder="127.0.0.1:5001,127.0.0.1:5002" required>
                             </div>
-                            <button type="submit" class="btn btn-secondary btn-block">Подключить ноды</button>
+                            <button type="submit" class="btn btn-primary w-100">Подключить ноды</button>
                         </form>
                     </div>
                 </div>
 
-                <div class="card mb-4 shadow-sm">
-                    <div class="card-header bg-info text-white">Консенсус</div>
+                <div class="card mb-4">
+                    <div class="card-header bg-info text-white">
+                        <h5>Консенсус сети</h5>
+                    </div>
                     <div class="card-body">
-                        <p class="small text-muted">Синхронизировать цепь с другими узлами сети по правилу самой длинной цепи.</p>
-                        <button id="btn_resolve" class="btn btn-info btn-block">Разрешить конфликты</button>
+                        <button id="btn_resolve" class="btn btn-info w-100">🔄 Синхронизировать цепь</button>
                     </div>
                 </div>
             </div>
 
-            <div class="col-md-8">
+            <!-- Основная часть -->
+            <div class="col-lg-8">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h4>Текущая цепочка блоков</h4>
-                    <button id="btn_refresh" class="btn btn-outline-secondary btn-sm">Обновить цепь</button>
+                    <h4>Цепочка блоков</h4>
+                    <button id="btn_refresh" class="btn btn-outline-light">Обновить</button>
                 </div>
-                <div id="blockchain_view">
-                    </div>
+
+                <div id="blocks_container"></div>
             </div>
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        $(function() {
-            function loadChain() {
-                $.ajax({
-                    url: '/chain',
-                    type: 'GET',
-                    success: function(response) {
-                        let chain = response['chain'];
-                        let html = '';
+        const API_URL = 'http://127.0.0.1:5000';
 
-                        chain.forEach(function(block) {
-                            let txs = '';
-                            block.transactions.forEach(function(tx) {
-                                txs += `<li><b>От:</b> ${tx.sender_address.substring(0, 15)}... <br>
-                                            <b>Кому:</b> ${tx.recipient_address.substring(0, 15)}... <br>
-                                            <b>Сумма:</b> <span class="badge badge-success">${tx.value}</span></li><hr>`;
-                            });
-                            if(txs === '') txs = '<span class="text-muted">Нет транзакций (Генезис-блок или пустой)</span>';
-
-                            html += `
-                                <div class="card mb-3 border-secondary shadow-sm">
-                                    <div class="card-header bg-secondary text-white d-flex justify-content-between">
-                                        <span><b>Блок №${block.block_number}</b></span>
-                                        <span class="small">Nonce: ${block.nonce}</span>
-                                    </div>
-                                    <div class="card-body">
-                                        <p class="card-text small mb-1"><b>Хеш предыдущего:</b> <code class="text-danger">${block.previous_hash}</code></p>
-                                        <p class="card-text small mb-2"><b>Время:</b> ${new Date(block.timestamp * 1000).toLocaleString()}</p>
-                                        <h6 class="border-bottom pb-1">Транзакции в блоке:</h6>
-                                        <ul class="list-unstyled mb-0 small">${txs}</ul>
-                                    </div>
-                                </div>
-                            `;
+        function loadChain() {
+            $.get(`${API_URL}/chain`, function(data) {
+                let html = '';
+                data.chain.forEach(block => {
+                    let txHtml = '';
+                    if (block.transactions && block.transactions.length > 0) {
+                        block.transactions.forEach(tx => {
+                            txHtml += `
+                                <div class="mb-2 p-2 bg-dark rounded">
+                                    <small>${tx.sender.substring(0,12)}... → ${tx.recipient.substring(0,12)}... : <b>${tx.amount}</b></small>
+                                </div>`;
                         });
-                        $('#blockchain_view').html(html);
+                    } else {
+                        txHtml = '<small class="text-muted">Генезис-блок</small>';
                     }
-                });
-            }
 
-            // Кнопка обновления цепи
-            $('#btn_refresh').click(loadChain);
-
-            // Майнинг нового блока
-            $('#btn_mine').click(function() {
-                $.ajax({
-                    url: '/mine',
-                    type: 'GET',
-                    success: function(response) {
-                        alert("Новый блок успешно добыт! Номер блока: " + response['block_number']);
-                        loadChain();
-                    },
-                    error: function() { alert("Ошибка при майнинге."); }
+                    html += `
+                        <div class="block p-3 mb-3">
+                            <div class="d-flex justify-content-between">
+                                <h5>Блок #${block.index}</h5>
+                                <span class="badge bg-success">Proof: ${block.proof}</span>
+                            </div>
+                            <p class="hash text-break text-info mb-2">${block.previous_hash}</p>
+                            <small class="text-muted">${new Date(block.timestamp * 1000).toLocaleString()}</small>
+                            <div class="mt-3">
+                                <strong>Транзакции:</strong>
+                                ${txHtml}
+                            </div>
+                        </div>`;
                 });
+                $('#blocks_container').html(html);
             });
+        }
 
-            // Регистрация новых нод
-            $('#node_form').submit(function(e) {
-                e.preventDefault();
-                $.ajax({
-                    url: '/nodes/register',
-                    type: 'POST',
-                    data: $(this).serialize(),
-                    success: function(response) {
-                        alert("Новые узлы успешно зарегистрированы!");
-                        $('#node_form')[0].reset();
-                    }
-                });
+        // Майнинг
+        $('#btn_mine').click(() => {
+            $('#btn_mine').prop('disabled', true).text('Майнинг...');
+            $.get(`${API_URL}/mine`, function() {
+                loadChain();
+                $('#btn_mine').prop('disabled', false).text('⛏️ Запустить Майнинг');
+            }).fail(() => alert('Ошибка майнинга'));
+        });
+
+        // Обновить цепь
+        $('#btn_refresh').click(loadChain);
+
+        // Добавить ноды
+        $('#node_form').submit(function(e) {
+            e.preventDefault();
+            $.post(`${API_URL}/nodes/register`, $(this).serialize(), function() {
+                alert('Узлы успешно добавлены!');
             });
+        });
 
-            // Консенсус
-            $('#btn_resolve').click(function() {
-                $.ajax({
-                    url: '/nodes/resolve',
-                    type: 'GET',
-                    success: function(response) {
-                        alert(response['message']);
-                        loadChain();
-                    }
-                });
+        // Консенсус
+        $('#btn_resolve').click(() => {
+            $.get(`${API_URL}/nodes/resolve`, function(res) {
+                alert(res.message);
+                loadChain();
             });
+        });
 
-            // Первичная загрузка при открытии страницы
+        // Автозагрузка при открытии
+        $(document).ready(() => {
             loadChain();
+            setInterval(loadChain, 10000); // автообновление каждые 10 сек
         });
     </script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
